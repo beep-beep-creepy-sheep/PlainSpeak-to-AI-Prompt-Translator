@@ -332,6 +332,7 @@ function buildTask(request, mode) {
 
 function inferProductName(request) {
   if (hasAny(request, [/pdf/i, /刷题|题库|错题|题目|答案/])) return "PDF-to-question-bank study web app";
+  if (isRecipeWebsiteRequest(request)) return "recipe tutorial webpage";
   if (hasAny(request, [/dashboard/i, /看板|仪表盘/])) return "dashboard";
   if (hasAny(request, [/website|网页|site/i, /网站|页面/])) return "web app";
   return "small static web app or implementation";
@@ -340,6 +341,9 @@ function inferProductName(request) {
 function inferCoreGoal(request) {
   if (hasAny(request, [/pdf/i, /刷题|题库|错题|题目|答案/])) {
     return "lets a user upload mock/public PDF question sets, extract question-answer text, organize a question bank, practice questions, and review wrong answers";
+  }
+  if (isRecipeWebsiteRequest(request)) {
+    return "turns a recipe idea into a polished cooking tutorial page with ingredients, steps, timing, tips, and a printable/checklist-friendly layout";
   }
   if (hasAny(request, [/dashboard/i, /看板|仪表盘/])) {
     return "shows the requested data in a clear, usable dashboard";
@@ -364,11 +368,10 @@ function buildContext(request, mode) {
 // Request breakdown is a deterministic "plain speak parser" for turning messy ideas into implementation parts.
 function buildRequestBreakdown(request, mode) {
   const isPdfQuiz = hasAny(request, [/pdf/i, /刷题|题库|错题|题目|答案/]);
+  const isRecipeSite = isRecipeWebsiteRequest(request);
   const isCoding = mode === "Coding";
   const breakdown = {
-    userIntent: isPdfQuiz
-      ? "Create a study/practice website from batches of PDF files containing questions and answers."
-      : "Clarify the user's rough request and convert it into an actionable prompt.",
+    userIntent: inferUserIntent(request, isPdfQuiz, isRecipeSite),
     detectedInputs: [],
     desiredOutputs: [],
     coreFeatures: [],
@@ -381,6 +384,9 @@ function buildRequestBreakdown(request, mode) {
   if (hasAny(request, [/pdf/i])) breakdown.detectedInputs.push("Batch PDF upload");
   if (hasAny(request, [/答案|answer/i])) breakdown.detectedInputs.push("PDFs may contain questions with answers");
   if (hasAny(request, [/题|question/i])) breakdown.detectedInputs.push("Question text");
+  if (isRecipeSite) breakdown.detectedInputs.push("Recipe topic or dish name");
+  if (hasAny(request, [/番茄炒蛋|西红柿炒鸡蛋|tomato.*egg|egg.*tomato/i])) breakdown.detectedInputs.push("Dish: tomato scrambled eggs");
+  if (hasAny(request, [/网页|网站|page|website|site/i])) breakdown.detectedInputs.push("Desired output: webpage");
   if (!breakdown.detectedInputs.length) breakdown.detectedInputs.push("User-provided text or files, exact input type not fully specified");
 
   if (isPdfQuiz) {
@@ -400,6 +406,23 @@ function buildRequestBreakdown(request, mode) {
     breakdown.openQuestions.push("Should OCR for scanned PDFs be required, or only text-based PDFs for v1?");
     breakdown.openQuestions.push("What question formats should be supported first: Q/A blocks, multiple choice, or both?");
     breakdown.openQuestions.push("Should data stay only in browser localStorage, or should there be login/cloud sync later?");
+  } else if (isRecipeSite) {
+    breakdown.desiredOutputs.push("Polished single-page recipe tutorial webpage");
+    breakdown.desiredOutputs.push("Ingredient list with quantities");
+    breakdown.desiredOutputs.push("Step-by-step cooking instructions");
+    breakdown.desiredOutputs.push("Timing, difficulty, serving size, and practical cooking tips");
+    breakdown.coreFeatures.push("Hero section with dish name and short description");
+    breakdown.coreFeatures.push("Ingredients checklist");
+    breakdown.coreFeatures.push("Numbered cooking steps");
+    breakdown.coreFeatures.push("Tips, common mistakes, and variations");
+    breakdown.coreFeatures.push("Responsive layout suitable for phone use in the kitchen");
+    breakdown.coreFeatures.push("Optional print-friendly styling");
+    breakdown.userFlows.push("Open webpage -> review ingredients -> follow steps while cooking -> check tips/variations -> print or save");
+    breakdown.dataModel.push("Recipe: title, servings, prepTime, cookTime, difficulty, ingredients, steps, tips, variations");
+    breakdown.deploymentTarget.push("Static GitHub Pages site");
+    breakdown.openQuestions.push("Should the page be Chinese-only, English-only, or bilingual?");
+    breakdown.openQuestions.push("How many servings should the ingredient quantities target?");
+    breakdown.openQuestions.push("Should the design feel homey, minimalist, playful, or restaurant-style?");
   } else if (isCoding) {
     breakdown.desiredOutputs.push("Working first version of the requested app");
     breakdown.coreFeatures.push("Small scoped implementation");
@@ -414,6 +437,18 @@ function buildRequestBreakdown(request, mode) {
   }
 
   return breakdown;
+}
+
+function inferUserIntent(request, isPdfQuiz, isRecipeSite) {
+  if (isPdfQuiz) return "Create a study/practice website from batches of PDF files containing questions and answers.";
+  if (isRecipeSite) return "Create a recipe tutorial webpage for the requested dish.";
+  return "Clarify the user's rough request and convert it into an actionable prompt.";
+}
+
+function isRecipeWebsiteRequest(request) {
+  const hasRecipeSignal = hasAny(request, [/食谱|菜谱|教程|做一份|做个|cooking|recipe|cook/i, /番茄炒蛋|西红柿炒鸡蛋|蛋炒|炒菜|ingredients?/i]);
+  const hasPageSignal = hasAny(request, [/网页|网站|page|website|site|html/i]);
+  return hasRecipeSignal && hasPageSignal;
 }
 
 function buildOutputFormat(mode) {
@@ -736,7 +771,7 @@ translateButton.addEventListener("click", async () => {
 clearButton.addEventListener("click", () => {
   requestInput.value = "";
   hideStatus();
-  emptyState.textContent = "Enter a request, choose a mode, and translate it into a structured prompt card.";
+  emptyState.textContent = "Enter a messy request, let Ollama understand it, and turn it into a structured prompt card.";
   emptyState.classList.remove("hidden");
   results.classList.add("hidden");
   currentPromptCard = null;

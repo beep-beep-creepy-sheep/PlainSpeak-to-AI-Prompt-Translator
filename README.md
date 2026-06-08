@@ -1,11 +1,11 @@
 # PlainSpeak Prompt Translator
 
-PlainSpeak Prompt Translator is a small static web app that turns plain-language human requests into structured, safer, prompt-engineered instructions. It shows the understood intent, request breakdown, structured prompt, missing information, safety notes, deterministic quality scores, and a JSON prompt-card preview.
+PlainSpeak Prompt Translator is a small static web app that uses a local LLM to turn messy human requests into structured, safer, prompt-engineered instructions. It shows the understood intent, request breakdown, structured prompt, missing information, safety notes, quality scores, and a JSON prompt-card preview.
 
 The app has two compiler modes:
 
-- Rule-based: deterministic, no setup, no API key.
-- Ollama local LLM: calls a local Ollama model for GPT-style intent understanding and prompt rewriting.
+- Ollama local LLM: the primary mode for GPT-style intent understanding and prompt rewriting.
+- Rule-based fallback: deterministic and no setup, but limited. It will miss many open-ended user intents.
 
 It uses no hosted backend, no cloud API key, no build step, and no external frameworks.
 
@@ -34,7 +34,7 @@ ollama pull qwen2.5:7b
 http://localhost:11434
 ```
 
-4. Open the app, set Compiler to `Ollama local LLM`, and choose the model name.
+4. Open the app. Compiler defaults to `Ollama local LLM`; choose the model name if needed.
 
 If the GitHub Pages version cannot reach your local Ollama because of browser security rules, run the app locally instead:
 
@@ -46,6 +46,12 @@ Then open:
 
 ```text
 http://localhost:8017
+```
+
+If your browser blocks the request or Ollama rejects the origin, start Ollama with a local origin allowed. For example:
+
+```bash
+OLLAMA_ORIGINS=http://localhost:8017 ollama serve
 ```
 
 ## Deploy with GitHub Pages
@@ -62,7 +68,7 @@ http://localhost:8017
 - Do not paste confidential data, client identifiers, account numbers, private portfolio holdings, employer-confidential information, or internal documents.
 - Do not treat generated text as investment advice.
 - Do not rely on AI-generated output without human review.
-- Rule-based mode can miss nuance.
+- Rule-based fallback is not suitable for arbitrary user input.
 - Ollama mode depends on the local model's quality and may still misunderstand vague requests.
 - The app does not include jailbreak, bypass, or unsafe prompt examples.
 

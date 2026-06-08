@@ -12,7 +12,7 @@
       <div>
         <p class="eyebrow">Static prompt-engineering demo</p>
         <h1>PlainSpeak Prompt Translator</h1>
-        <p class="subtitle">Turn vague human requests into structured, safer, prompt-engineered instructions.</p>
+        <p class="subtitle">Use a local LLM to understand messy human requests, then rewrite them as structured, safer prompts.</p>
       </div>
     </header>
 
@@ -24,6 +24,7 @@
         <div class="examples" aria-label="Example requests">
           <button type="button" class="chip">帮我总结这篇文章，写得专业一点</button>
           <button type="button" class="chip">帮我检查这个 portfolio report 有没有逻辑问题</button>
+          <button type="button" class="chip">我要做一份番茄炒蛋，请帮我做个食谱教程网页</button>
           <button type="button" class="chip">Write a Codex prompt to build a simple dashboard</button>
           <button type="button" class="chip">Turn this AI use case into eval test cases</button>
         </div>
@@ -55,8 +56,8 @@
             <div>
               <label for="compilerSelect">Compiler</label>
               <select id="compilerSelect">
-                <option value="rules">Rule-based</option>
                 <option value="ollama">Ollama local LLM</option>
+                <option value="rules">Rule-based fallback</option>
               </select>
             </div>
             <div>
@@ -66,7 +67,7 @@
           </div>
           <label for="ollamaEndpoint">Ollama endpoint</label>
           <input id="ollamaEndpoint" type="text" value="http://localhost:11434/api/generate">
-          <p class="helper-text">Ollama mode keeps the app static, but requires Ollama running locally. Rule-based mode works without any setup.</p>
+          <p class="helper-text">Ollama is the real compiler for open-ended requests. Rule-based mode is only a no-setup fallback and will miss many user intents.</p>
         </div>
 
         <div class="button-row">
@@ -88,7 +89,7 @@
         </div>
 
         <div id="emptyState" class="empty-state">
-          Enter a request, choose a mode, and translate it into a structured prompt card.
+          Enter a messy request, let Ollama understand it, and turn it into a structured prompt card.
         </div>
 
         <div id="statusMessage" class="status-message hidden"></div>
@@ -129,7 +130,7 @@
   </main>
 
   <footer>
-    Built as a static prompt-engineering demo. Uses deterministic rules only.
+    Built as a static prompt-engineering demo. Ollama mode uses your local model; rule-based mode is a fallback only.
   </footer>
 
   <script src="script.js"></script>

@@ -1,12 +1,17 @@
 const requestInput = document.querySelector("#requestInput");
 const modeSelect = document.querySelector("#modeSelect");
 const languageSelect = document.querySelector("#languageSelect");
+const compilerSelect = document.querySelector("#compilerSelect");
+const ollamaModel = document.querySelector("#ollamaModel");
+const ollamaEndpoint = document.querySelector("#ollamaEndpoint");
 const translateButton = document.querySelector("#translateButton");
 const clearButton = document.querySelector("#clearButton");
 const copyButton = document.querySelector("#copyButton");
 const exportButton = document.querySelector("#exportButton");
 const emptyState = document.querySelector("#emptyState");
+const statusMessage = document.querySelector("#statusMessage");
 const results = document.querySelector("#results");
+const requestBreakdown = document.querySelector("#requestBreakdown");
 const structuredPrompt = document.querySelector("#structuredPrompt");
 const missingInformation = document.querySelector("#missingInformation");
 const safetyNotes = document.querySelector("#safetyNotes");
@@ -48,6 +53,7 @@ const MODE_CONFIG = {
   Coding: {
     role: "Senior software implementation assistant",
     instructions: [
+      "First decompose the user's plain-language idea into goal, inputs, outputs, user flows, data model, deployment target, and open questions.",
       "Turn the request into an implementation-ready coding prompt.",
       "Specify file structure, implementation details, tests, and edge cases.",
       "Keep the solution scoped and readable.",
@@ -149,11 +155,13 @@ function compilePrompt(request, mode, outputLanguage) {
   const riskNotes = buildRiskNotes(cleanRequest, mode);
   const safetyBoundaries = buildSafetyBoundaries(mode);
   const qualityScore = scorePrompt(cleanRequest, missing, safetyBoundaries);
+  const requestBreakdown = buildRequestBreakdown(cleanRequest, mode);
 
   const promptCard = {
     originalRequest: cleanRequest,
     mode,
     outputLanguage,
+    requestBreakdown,
     role: config.role,
     task: buildTask(cleanRequest, mode),
     context: buildContext(cleanRequest, mode),
@@ -172,11 +180,171 @@ function compilePrompt(request, mode, outputLanguage) {
   return promptCard;
 }
 
+// Ollama compiler: asks a local model to understand the user's intent, then normalizes it into the same prompt-card shape.
+async function compilePromptWithOllama(request, mode, outputLanguage, options) {
+  const fallbackCard = compilePrompt(request, mode, outputLanguage);
+  const response = await fetch(options.endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: options.model,
+      prompt: buildOllamaCompilerPrompt(request, mode, outputLanguage),
+      stream: false,
+      format: "json",
+      options: {
+        temperature: 0.2,
+        num_predict: 1800
+      }
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Ollama request failed with status ${response.status}`);
+  }
+
+  const payload = await response.json();
+  const parsed = parseModelJson(payload.response || "");
+  const card = normalizeModelCard(parsed, fallbackCard);
+  card.compiler = {
+    type: "ollama",
+    model: options.model,
+    endpoint: options.endpoint
+  };
+  card.structuredPrompt = formatStructuredPrompt(card, outputLanguage);
+  return card;
+}
+
+function buildOllamaCompilerPrompt(request, mode, outputLanguage) {
+  return `You are PlainSpeak Prompt Translator.
+
+Your job is to understand the user's plain-language request the way a helpful GPT-style assistant would, then rewrite it as an equivalent, clearer prompt for another AI or coding agent.
+
+Important:
+- Preserve the user's real intent. Do not turn the request into a generic template.
+- First explain what you think the user means.
+- Then produce an implementation-ready or task-ready prompt.
+- Ask for missing information only when it materially affects the result.
+- Do not include confidential data, client identifiers, investment advice, jailbreaks, bypasses, or unsafe prompt examples.
+- Use mock/public information only.
+- Output JSON only. No markdown fences.
+
+Mode: ${mode}
+Output language setting: ${outputLanguage}
+Original request:
+${request}
+
+Return exactly this JSON shape:
+{
+  "understoodIntent": "Plain-language sentence explaining what the user really wants.",
+  "requestBreakdown": {
+    "userIntent": "",
+    "detectedInputs": [],
+    "desiredOutputs": [],
+    "coreFeatures": [],
+    "userFlows": [],
+    "dataModel": [],
+    "deploymentTarget": [],
+    "openQuestions": []
+  },
+  "role": "",
+  "task": "",
+  "context": "",
+  "instructions": [],
+  "constraints": [],
+  "outputFormat": [],
+  "safetyBoundaries": [],
+  "missingInformation": [],
+  "assumptions": [],
+  "qualityChecklist": [],
+  "riskNotes": []
+}`;
+}
+
+function parseModelJson(text) {
+  const trimmed = text.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    const match = trimmed.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("Ollama did not return JSON.");
+    return JSON.parse(match[0]);
+  }
+}
+
+function normalizeModelCard(modelCard, fallbackCard) {
+  const normalized = {
+    ...fallbackCard,
+    understoodIntent: stringOrFallback(modelCard.understoodIntent, fallbackCard.requestBreakdown.userIntent),
+    requestBreakdown: normalizeBreakdown(modelCard.requestBreakdown, fallbackCard.requestBreakdown),
+    role: stringOrFallback(modelCard.role, fallbackCard.role),
+    task: stringOrFallback(modelCard.task, fallbackCard.task),
+    context: stringOrFallback(modelCard.context, fallbackCard.context),
+    instructions: arrayOrFallback(modelCard.instructions, fallbackCard.instructions),
+    constraints: arrayOrFallback(modelCard.constraints, fallbackCard.constraints),
+    outputFormat: arrayOrFallback(modelCard.outputFormat, fallbackCard.outputFormat),
+    safetyBoundaries: arrayOrFallback(modelCard.safetyBoundaries, fallbackCard.safetyBoundaries),
+    missingInformation: arrayOrFallback(modelCard.missingInformation, fallbackCard.missingInformation),
+    assumptions: arrayOrFallback(modelCard.assumptions, fallbackCard.assumptions),
+    qualityChecklist: arrayOrFallback(modelCard.qualityChecklist, fallbackCard.qualityChecklist),
+    riskNotes: arrayOrFallback(modelCard.riskNotes, fallbackCard.riskNotes)
+  };
+  normalized.qualityScore = scorePrompt(normalized.originalRequest, normalized.missingInformation, normalized.safetyBoundaries);
+  return normalized;
+}
+
+function normalizeBreakdown(value, fallback) {
+  const source = value && typeof value === "object" ? value : {};
+  return {
+    userIntent: stringOrFallback(source.userIntent, fallback.userIntent),
+    detectedInputs: arrayOrFallback(source.detectedInputs, fallback.detectedInputs),
+    desiredOutputs: arrayOrFallback(source.desiredOutputs, fallback.desiredOutputs),
+    coreFeatures: arrayOrFallback(source.coreFeatures, fallback.coreFeatures),
+    userFlows: arrayOrFallback(source.userFlows, fallback.userFlows),
+    dataModel: arrayOrFallback(source.dataModel, fallback.dataModel),
+    deploymentTarget: arrayOrFallback(source.deploymentTarget, fallback.deploymentTarget),
+    openQuestions: arrayOrFallback(source.openQuestions, fallback.openQuestions)
+  };
+}
+
+function stringOrFallback(value, fallback) {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function arrayOrFallback(value, fallback) {
+  if (!Array.isArray(value)) return fallback;
+  const cleaned = value.map((item) => String(item).trim()).filter(Boolean);
+  return cleaned.length ? cleaned : fallback;
+}
+
 function buildTask(request, mode) {
   if (mode === "Evaluation") {
     return `Create deterministic eval cases for this request: "${request}"`;
   }
+  if (mode === "Coding") {
+    const product = inferProductName(request);
+    const coreGoal = inferCoreGoal(request);
+    return `Build a scoped ${product} that ${coreGoal}. Use the breakdown below as the implementation brief.`;
+  }
   return `Transform this plain-language request into a clear, structured AI instruction: "${request}"`;
+}
+
+function inferProductName(request) {
+  if (hasAny(request, [/pdf/i, /刷题|题库|错题|题目|答案/])) return "PDF-to-question-bank study web app";
+  if (hasAny(request, [/dashboard/i, /看板|仪表盘/])) return "dashboard";
+  if (hasAny(request, [/website|网页|site/i, /网站|页面/])) return "web app";
+  return "small static web app or implementation";
+}
+
+function inferCoreGoal(request) {
+  if (hasAny(request, [/pdf/i, /刷题|题库|错题|题目|答案/])) {
+    return "lets a user upload mock/public PDF question sets, extract question-answer text, organize a question bank, practice questions, and review wrong answers";
+  }
+  if (hasAny(request, [/dashboard/i, /看板|仪表盘/])) {
+    return "shows the requested data in a clear, usable dashboard";
+  }
+  return "turns the user's idea into a usable first version";
 }
 
 function buildContext(request, mode) {
@@ -193,6 +361,61 @@ function buildContext(request, mode) {
   return base;
 }
 
+// Request breakdown is a deterministic "plain speak parser" for turning messy ideas into implementation parts.
+function buildRequestBreakdown(request, mode) {
+  const isPdfQuiz = hasAny(request, [/pdf/i, /刷题|题库|错题|题目|答案/]);
+  const isCoding = mode === "Coding";
+  const breakdown = {
+    userIntent: isPdfQuiz
+      ? "Create a study/practice website from batches of PDF files containing questions and answers."
+      : "Clarify the user's rough request and convert it into an actionable prompt.",
+    detectedInputs: [],
+    desiredOutputs: [],
+    coreFeatures: [],
+    userFlows: [],
+    dataModel: [],
+    deploymentTarget: [],
+    openQuestions: []
+  };
+
+  if (hasAny(request, [/pdf/i])) breakdown.detectedInputs.push("Batch PDF upload");
+  if (hasAny(request, [/答案|answer/i])) breakdown.detectedInputs.push("PDFs may contain questions with answers");
+  if (hasAny(request, [/题|question/i])) breakdown.detectedInputs.push("Question text");
+  if (!breakdown.detectedInputs.length) breakdown.detectedInputs.push("User-provided text or files, exact input type not fully specified");
+
+  if (isPdfQuiz) {
+    breakdown.desiredOutputs.push("Extracted question-answer items");
+    breakdown.desiredOutputs.push("Organized question bank");
+    breakdown.desiredOutputs.push("Practice page for answering questions");
+    breakdown.desiredOutputs.push("Wrong-answer review list");
+    breakdown.coreFeatures.push("Upload one or more PDF files");
+    breakdown.coreFeatures.push("Extract text from PDFs in the browser where feasible");
+    breakdown.coreFeatures.push("Parse extracted text into question and answer records");
+    breakdown.coreFeatures.push("Allow practice mode with show/hide answer");
+    breakdown.coreFeatures.push("Track wrong answers locally with localStorage");
+    breakdown.coreFeatures.push("Export/import the generated question bank as JSON");
+    breakdown.userFlows.push("Upload PDFs -> preview extracted text -> confirm parsed questions -> practice -> mark wrong/correct -> review wrong answers");
+    breakdown.dataModel.push("Question: id, sourceFile, questionText, answerText, tags, createdAt, lastPracticedAt, wrongCount");
+    breakdown.deploymentTarget.push("Static GitHub Pages site");
+    breakdown.openQuestions.push("Should OCR for scanned PDFs be required, or only text-based PDFs for v1?");
+    breakdown.openQuestions.push("What question formats should be supported first: Q/A blocks, multiple choice, or both?");
+    breakdown.openQuestions.push("Should data stay only in browser localStorage, or should there be login/cloud sync later?");
+  } else if (isCoding) {
+    breakdown.desiredOutputs.push("Working first version of the requested app");
+    breakdown.coreFeatures.push("Small scoped implementation");
+    breakdown.userFlows.push("User completes the primary task from the first screen");
+    breakdown.dataModel.push("Keep data local unless backend storage is explicitly requested");
+    breakdown.deploymentTarget.push("Static deployment if possible");
+    breakdown.openQuestions.push("What exact inputs, outputs, and deployment target should be supported?");
+  } else {
+    breakdown.desiredOutputs.push("Clear structured prompt");
+    breakdown.coreFeatures.push("Clarified task, constraints, output format, and safety boundaries");
+    breakdown.openQuestions.push("What context, audience, format, and success criteria are missing?");
+  }
+
+  return breakdown;
+}
+
 function buildOutputFormat(mode) {
   if (mode === "Evaluation") {
     return [
@@ -205,6 +428,7 @@ function buildOutputFormat(mode) {
     ];
   }
   return [
+    "Request Breakdown",
     "Role",
     "Task",
     "Context",
@@ -305,6 +529,8 @@ function clampScore(value) {
 
 function formatStructuredPrompt(card, outputLanguage) {
   const english = [
+    card.understoodIntent ? `Understood Intent:\n${card.understoodIntent}` : "",
+    `Request Breakdown:\n${formatBreakdown(card.requestBreakdown)}`,
     `Role:\n${card.role}`,
     `Task:\n${card.task}`,
     `Context:\n${card.context}`,
@@ -313,7 +539,7 @@ function formatStructuredPrompt(card, outputLanguage) {
     `Output Format:\n${toBullets(card.outputFormat)}`,
     `Safety Boundaries:\n${toBullets(card.safetyBoundaries)}`,
     `Quality Checklist:\n${toBullets(card.qualityChecklist)}`
-  ].join("\n\n");
+  ].filter(Boolean).join("\n\n");
 
   if (outputLanguage === "Chinese Prompt") {
     return toChinesePrompt(card);
@@ -332,6 +558,8 @@ function formatStructuredPrompt(card, outputLanguage) {
 
 function toChinesePrompt(card) {
   return [
+    card.understoodIntent ? `理解后的意思：\n${card.understoodIntent}` : "",
+    `需求拆解：\n${formatBreakdown(card.requestBreakdown)}`,
     `角色：\n${card.role}`,
     `任务：\n${card.task}`,
     `背景：\n${card.context}`,
@@ -340,16 +568,38 @@ function toChinesePrompt(card) {
     `输出格式：\n${toBullets(card.outputFormat)}`,
     `安全边界：\n${toBullets(card.safetyBoundaries)}`,
     `质量检查清单：\n${toBullets(card.qualityChecklist)}`
-  ].join("\n\n");
+  ].filter(Boolean).join("\n\n");
 }
 
 function toBullets(items) {
   return items.map((item) => `- ${item}`).join("\n");
 }
 
+function formatBreakdown(breakdown) {
+  return [
+    `- User intent: ${breakdown.userIntent}`,
+    `- Detected inputs:\n${toIndentedBullets(breakdown.detectedInputs)}`,
+    `- Desired outputs:\n${toIndentedBullets(breakdown.desiredOutputs)}`,
+    `- Core features:\n${toIndentedBullets(breakdown.coreFeatures)}`,
+    `- User flow:\n${toIndentedBullets(breakdown.userFlows)}`,
+    `- Data model:\n${toIndentedBullets(breakdown.dataModel)}`,
+    `- Deployment target:\n${toIndentedBullets(breakdown.deploymentTarget)}`,
+    `- Open questions:\n${toIndentedBullets(breakdown.openQuestions)}`
+  ].join("\n");
+}
+
+function toIndentedBullets(items) {
+  return items.map((item) => `  - ${item}`).join("\n");
+}
+
+function hasAny(text, patterns) {
+  return patterns.some((pattern) => pattern.test(text));
+}
+
 function renderPromptCard(card) {
   currentPromptCard = card;
   currentPromptText = card.structuredPrompt;
+  requestBreakdown.textContent = formatBreakdown(card.requestBreakdown);
   structuredPrompt.textContent = card.structuredPrompt;
   renderList(missingInformation, card.missingInformation);
   renderList(safetyNotes, [...card.safetyBoundaries, ...card.riskNotes]);
@@ -357,6 +607,18 @@ function renderPromptCard(card) {
   promptCardPreview.textContent = JSON.stringify(card, null, 2);
   emptyState.classList.add("hidden");
   results.classList.remove("hidden");
+}
+
+function showStatus(message, isError = false) {
+  statusMessage.textContent = message;
+  statusMessage.classList.toggle("error", isError);
+  statusMessage.classList.remove("hidden");
+}
+
+function hideStatus() {
+  statusMessage.textContent = "";
+  statusMessage.classList.remove("error");
+  statusMessage.classList.add("hidden");
 }
 
 function renderList(element, items) {
@@ -388,6 +650,7 @@ function renderScores(scores) {
 
 function showEmptyInputMessage() {
   emptyState.innerHTML = '<span class="hint">Please enter a plain-language request before translating.</span>';
+  hideStatus();
   emptyState.classList.remove("hidden");
   results.classList.add("hidden");
   currentPromptCard = null;
@@ -431,19 +694,48 @@ function exportPromptCard() {
   URL.revokeObjectURL(url);
 }
 
-translateButton.addEventListener("click", () => {
+translateButton.addEventListener("click", async () => {
   const request = requestInput.value;
   if (!request.trim()) {
     showEmptyInputMessage();
     return;
   }
 
-  const card = compilePrompt(request, modeSelect.value, languageSelect.value);
-  renderPromptCard(card);
+  translateButton.disabled = true;
+  translateButton.textContent = compilerSelect.value === "ollama" ? "Asking Ollama..." : "Translating...";
+  hideStatus();
+
+  try {
+    let card;
+    if (compilerSelect.value === "ollama") {
+      showStatus("Asking local Ollama to understand and rewrite the request...");
+      card = await compilePromptWithOllama(request, modeSelect.value, languageSelect.value, {
+        model: ollamaModel.value.trim() || "qwen2.5:7b",
+        endpoint: ollamaEndpoint.value.trim() || "http://localhost:11434/api/generate"
+      });
+      showStatus("Ollama compiler succeeded.");
+    } else {
+      card = compilePrompt(request, modeSelect.value, languageSelect.value);
+      showStatus("Rule-based compiler completed.");
+    }
+    renderPromptCard(card);
+  } catch (error) {
+    const fallbackCard = compilePrompt(request, modeSelect.value, languageSelect.value);
+    fallbackCard.compiler = {
+      type: "rules-fallback",
+      reason: error.message
+    };
+    renderPromptCard(fallbackCard);
+    showStatus(`Ollama failed, so rule-based fallback was used. ${error.message}`, true);
+  } finally {
+    translateButton.disabled = false;
+    translateButton.textContent = "Translate into Structured Prompt";
+  }
 });
 
 clearButton.addEventListener("click", () => {
   requestInput.value = "";
+  hideStatus();
   emptyState.textContent = "Enter a request, choose a mode, and translate it into a structured prompt card.";
   emptyState.classList.remove("hidden");
   results.classList.add("hidden");
@@ -463,3 +755,4 @@ document.querySelectorAll(".chip").forEach((chip) => {
 });
 
 window.compilePrompt = compilePrompt;
+window.compilePromptWithOllama = compilePromptWithOllama;

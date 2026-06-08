@@ -50,6 +50,25 @@
           </div>
         </div>
 
+        <div class="llm-panel">
+          <div class="controls-grid">
+            <div>
+              <label for="compilerSelect">Compiler</label>
+              <select id="compilerSelect">
+                <option value="rules">Rule-based</option>
+                <option value="ollama">Ollama local LLM</option>
+              </select>
+            </div>
+            <div>
+              <label for="ollamaModel">Ollama model</label>
+              <input id="ollamaModel" type="text" value="qwen2.5:7b" placeholder="qwen2.5:7b, llama3.1, mistral">
+            </div>
+          </div>
+          <label for="ollamaEndpoint">Ollama endpoint</label>
+          <input id="ollamaEndpoint" type="text" value="http://localhost:11434/api/generate">
+          <p class="helper-text">Ollama mode keeps the app static, but requires Ollama running locally. Rule-based mode works without any setup.</p>
+        </div>
+
         <div class="button-row">
           <button id="translateButton" class="primary" type="button">Translate into Structured Prompt</button>
           <button id="clearButton" type="button">Clear</button>
@@ -72,7 +91,14 @@
           Enter a request, choose a mode, and translate it into a structured prompt card.
         </div>
 
+        <div id="statusMessage" class="status-message hidden"></div>
+
         <div id="results" class="results hidden">
+          <section class="result-card">
+            <h3>Request Breakdown</h3>
+            <pre id="requestBreakdown"></pre>
+          </section>
+
           <section class="result-card">
             <h3>Structured Prompt</h3>
             <pre id="structuredPrompt"></pre>

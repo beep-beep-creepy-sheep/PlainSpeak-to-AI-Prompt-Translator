@@ -27,6 +27,7 @@ body {
 }
 
 button,
+input,
 select,
 textarea {
   font: inherit;
@@ -111,6 +112,7 @@ label {
 }
 
 textarea,
+input,
 select {
   width: 100%;
   border: 1px solid var(--line);
@@ -133,7 +135,13 @@ select {
   padding: 0 12px;
 }
 
+input {
+  min-height: 44px;
+  padding: 0 12px;
+}
+
 textarea:focus,
+input:focus,
 select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(52, 108, 99, 0.15);
@@ -192,6 +200,25 @@ button:active {
   gap: 14px;
 }
 
+.llm-panel {
+  margin-top: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: #fbfaf6;
+}
+
+.llm-panel .controls-grid {
+  margin-bottom: 14px;
+}
+
+.helper-text {
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
 .button-row {
   display: flex;
   flex-wrap: wrap;
@@ -223,8 +250,24 @@ button:active {
   padding: 28px;
 }
 
+.status-message {
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 750;
+}
+
+.status-message.error {
+  border-color: #d8bd8c;
+  background: #fff4d9;
+  color: var(--warning);
+}
+
 .hidden {
-  display: none;
+  display: none !important;
 }
 
 .results {

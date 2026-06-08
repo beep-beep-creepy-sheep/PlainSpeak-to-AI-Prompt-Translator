@@ -22,19 +22,33 @@ You can also serve the folder with any static file server, but that is optional.
 ## Use Ollama mode
 
 1. Install and start Ollama.
-2. Pull a model, for example:
+2. Check which models you already have:
 
 ```bash
-ollama pull qwen2.5:7b
+ollama list
 ```
 
-3. Make sure Ollama is running at:
+3. If you do not have a model yet, pull one:
+
+```bash
+ollama pull llama3.1
+```
+
+4. Make sure Ollama is running at:
 
 ```text
 http://localhost:11434
 ```
 
-4. Open the app. Compiler defaults to `Ollama local LLM`; choose the model name if needed.
+5. Open the app. Compiler defaults to `Ollama local LLM`.
+
+6. Set the model field to an installed model name from `ollama list`, for example:
+
+```text
+llama3.1:latest
+```
+
+If the app says `model not found`, the model name in the page does not match an installed Ollama model.
 
 If the GitHub Pages version cannot reach your local Ollama because of browser security rules, run the app locally instead:
 
@@ -52,6 +66,12 @@ If your browser blocks the request or Ollama rejects the origin, start Ollama wi
 
 ```bash
 OLLAMA_ORIGINS=http://localhost:8017 ollama serve
+```
+
+For the GitHub Pages live site, the origin is different:
+
+```bash
+OLLAMA_ORIGINS=https://beep-beep-creepy-sheep.github.io ollama serve
 ```
 
 ## Deploy with GitHub Pages

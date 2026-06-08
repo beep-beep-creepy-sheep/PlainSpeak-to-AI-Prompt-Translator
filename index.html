@@ -62,12 +62,21 @@
             </div>
             <div>
               <label for="ollamaModel">Ollama model</label>
-              <input id="ollamaModel" type="text" value="qwen2.5:7b" placeholder="qwen2.5:7b, llama3.1, mistral">
+              <input id="ollamaModel" type="text" value="llama3.1:latest" placeholder="llama3.1:latest, qwen2.5:7b, mistral">
             </div>
           </div>
           <label for="ollamaEndpoint">Ollama endpoint</label>
           <input id="ollamaEndpoint" type="text" value="http://localhost:11434/api/generate">
           <p class="helper-text">Ollama is the real compiler for open-ended requests. Rule-based mode is only a no-setup fallback and will miss many user intents.</p>
+          <details class="setup-guide">
+            <summary>Ollama setup checklist</summary>
+            <ol>
+              <li>Open the Ollama Mac app, or run <code>ollama serve</code>.</li>
+              <li>Run <code>ollama list</code> and copy an installed model name.</li>
+              <li>Paste that exact name into the model box, for example <code>llama3.1:latest</code>.</li>
+              <li>If the live site fails because of browser security, run this app locally with <code>python3 -m http.server 8017</code>.</li>
+            </ol>
+          </details>
         </div>
 
         <div class="button-row">

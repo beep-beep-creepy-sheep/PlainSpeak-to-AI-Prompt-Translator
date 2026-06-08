@@ -201,10 +201,14 @@ async function compilePromptWithOllama(request, mode, outputLanguage, options) {
   });
 
   if (!response.ok) {
-    throw new Error(`Ollama request failed with status ${response.status}`);
+    const errorText = await response.text();
+    throw new Error(formatOllamaError(response.status, errorText));
   }
 
   const payload = await response.json();
+  if (payload.error) {
+    throw new Error(payload.error);
+  }
   const parsed = parseModelJson(payload.response || "");
   const card = normalizeModelCard(parsed, fallbackCard);
   card.compiler = {
@@ -214,6 +218,16 @@ async function compilePromptWithOllama(request, mode, outputLanguage, options) {
   };
   card.structuredPrompt = formatStructuredPrompt(card, outputLanguage);
   return card;
+}
+
+function formatOllamaError(status, errorText) {
+  try {
+    const parsed = JSON.parse(errorText);
+    if (parsed.error) return `Ollama error ${status}: ${parsed.error}`;
+  } catch {
+    // Keep the original text below when the body is not JSON.
+  }
+  return `Ollama request failed with status ${status}: ${errorText || "no error body"}`;
 }
 
 function buildOllamaCompilerPrompt(request, mode, outputLanguage) {

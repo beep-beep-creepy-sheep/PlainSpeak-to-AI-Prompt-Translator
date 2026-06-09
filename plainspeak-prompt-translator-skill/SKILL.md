@@ -1,6 +1,8 @@
 ---
 name: plainspeak-prompt-translator
-description: Turn vague, messy, or plain-language requests into structured Prompt Cards, Codex-ready implementation prompts, evaluation cases, writing briefs, analysis prompts, or AI risk review checklists. Use when the user asks to clarify, translate, improve, rewrite, operationalize, or make a prompt safer before giving it to an AI assistant or coding agent.
+description: Use when a user gives a messy or vague plain-language request and wants it converted into a structured, safer Prompt Card, Codex-ready implementation prompt, writing prompt, analysis prompt, AI-risk checklist, or evaluation test suite. Also use when designing reusable prompt-compilation workflows with modes, assumptions, clarification rules, safety boundaries, and acceptance criteria.
+metadata:
+  short-description: Turn messy requests into structured Prompt Cards
 ---
 
 # PlainSpeak Prompt Translator Skill

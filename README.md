@@ -134,6 +134,33 @@ The workflow:
 
 The skill layer is documentation-first. It is not a separate app and does not replace the web demo.
 
+## Install As A Codex Skill
+
+The skill package is shaped like a Codex skill:
+
+```text
+plainspeak-prompt-translator-skill/
+|-- SKILL.md
+|-- agents/
+|   `-- openai.yaml
+`-- references/
+```
+
+To install it locally for Codex, copy it into your Codex skills directory:
+
+```bash
+mkdir -p ~/.codex/skills/plainspeak-prompt-translator
+cp -R plainspeak-prompt-translator-skill/* ~/.codex/skills/plainspeak-prompt-translator/
+```
+
+After installation, you can invoke it explicitly:
+
+```text
+Use $plainspeak-prompt-translator to turn this rough idea into a PromptCard v0.1 and a Codex-ready prompt: ...
+```
+
+If Codex has loaded the skill metadata, it can also be used implicitly for messy prompt-translation requests.
+
 ## How To Use With Codex
 
 You can paste a vague idea into Codex and ask it to apply the PlainSpeak Prompt Card workflow.
@@ -170,6 +197,8 @@ Codex should then produce:
 |   `-- compiler.test.js
 `-- plainspeak-prompt-translator-skill/
     |-- SKILL.md
+    |-- agents/
+    |   `-- openai.yaml
     `-- references/
         |-- prompt-card-schema.md
         |-- mode-templates.md

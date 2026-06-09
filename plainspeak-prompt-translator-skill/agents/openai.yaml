@@ -1,0 +1,4 @@
+interface:
+  display_name: "PlainSpeak Prompt Translator"
+  short_description: "Turn vague requests into structured Prompt Cards"
+  default_prompt: "Apply the PlainSpeak Prompt Translator workflow to this rough request."

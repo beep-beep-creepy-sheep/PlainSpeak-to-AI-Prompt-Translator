@@ -81,3 +81,28 @@ output_format:
   - "Codex-ready prompt"
 compiled_prompt: "Build a static recipe tutorial webpage for tomato eggs..."
 ```
+
+## Web App JSON Mapping
+
+The static web app exposes a JSON-oriented schema for export and UI rendering. It is intentionally aligned with `PromptCard v0.1`, but uses camelCase keys and groups safety metadata.
+
+| Web app field | PromptCard v0.1 equivalent |
+| --- | --- |
+| `schemaVersion` | Schema/export version for the web app |
+| `originalRequest` | `original_request` |
+| `intent.summary` | `interpreted_intent` |
+| `intent.type` | `mode` |
+| `context` | `context` |
+| `inputs` | `inputs` |
+| `outputs` | `desired_outputs` |
+| `constraints` | `constraints` |
+| `assumptions` | `assumptions` |
+| `missingInformation` | Source for `critical_missing_information` and `nice_to_have_information` |
+| `acceptanceCriteria` | `acceptance_criteria` |
+| `safety.risks` | `risks` |
+| `safety.boundaries` | `safety_boundaries` |
+| `openQuestions` | `open_questions` |
+| `outputFormat` | `output_format` |
+| `structuredPrompt` | `compiled_prompt` |
+
+Use `PromptCard v0.1` for human-readable skill outputs. Use the web app JSON shape when building UI features, exports, tests, or prompt registry integrations.

@@ -50,6 +50,22 @@ Then open:
 http://localhost:8017
 ```
 
+## Test the Compiler
+
+The core rule-based compiler can be checked without a browser:
+
+```bash
+node tests/compiler.test.js
+```
+
+This verifies the web app's structured Prompt Card fields, acceptance criteria, safety metadata, and Chinese prompt formatting.
+
+## Prompt Card Outputs
+
+The web app exports a JSON-friendly schema with `schemaVersion`, `intent`, `inputs`, `outputs`, `constraints`, `acceptanceCriteria`, `openQuestions`, `safety`, quality scores, and the final structured prompt.
+
+The skill methodology uses `PromptCard v0.1` as its human-readable documentation format. The two formats are intentionally aligned: the web schema is optimized for UI/export workflows, while the skill schema is optimized for reusable prompt-design guidance.
+
 ## Use Ollama Mode
 
 1. Install and start Ollama.
@@ -124,10 +140,10 @@ The skill package is shaped like a Codex skill:
 
 ```text
 plainspeak-prompt-translator-skill/
-├── SKILL.md
-├── agents/
-│   └── openai.yaml
-└── references/
+|-- SKILL.md
+|-- agents/
+|   `-- openai.yaml
+`-- references/
 ```
 
 To install it locally for Codex, copy it into your Codex skills directory:
@@ -172,22 +188,24 @@ Codex should then produce:
 
 ```text
 .
-├── index.html
-├── style.css
-├── script.js
-├── README.md
-├── AGENTS.md
-└── plainspeak-prompt-translator-skill/
-    ├── SKILL.md
-    ├── agents/
-    │   └── openai.yaml
-    └── references/
-        ├── prompt-card-schema.md
-        ├── mode-templates.md
-        ├── clarification-rules.md
-        ├── safety-boundaries.md
-        ├── output-formats.md
-        └── examples.md
+|-- index.html
+|-- style.css
+|-- script.js
+|-- README.md
+|-- AGENTS.md
+|-- tests/
+|   `-- compiler.test.js
+`-- plainspeak-prompt-translator-skill/
+    |-- SKILL.md
+    |-- agents/
+    |   `-- openai.yaml
+    `-- references/
+        |-- prompt-card-schema.md
+        |-- mode-templates.md
+        |-- clarification-rules.md
+        |-- safety-boundaries.md
+        |-- output-formats.md
+        `-- examples.md
 ```
 
 ## Deploy With GitHub Pages
